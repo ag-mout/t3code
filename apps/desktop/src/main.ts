@@ -77,6 +77,7 @@ import * as PreviewManager from "./preview/Manager.ts";
 import * as PreviewPasskeys from "./preview/Passkeys.ts";
 import * as DesktopWindow from "./window/DesktopWindow.ts";
 import * as DesktopWslBackend from "./wsl/DesktopWslBackend.ts";
+import * as DesktopWslLanForward from "./wsl/DesktopWslLanForward.ts";
 import * as DesktopWslEnvironment from "./wsl/DesktopWslEnvironment.ts";
 import * as DesktopWslServerTree from "./wsl/DesktopWslServerTree.ts";
 
@@ -189,6 +190,7 @@ const layerDesktopAppActivation = DesktopAppActivation.layer.pipe(
 );
 
 const layerDesktopBackend = DesktopBackendPool.layer.pipe(
+  Layer.provide(DesktopWslLanForward.layer),
   Layer.provideMerge(DesktopAppIdentity.layer),
   Layer.provideMerge(DesktopBackendConfiguration.layer),
   Layer.provideMerge(DesktopWslEnvironment.layer),

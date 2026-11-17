@@ -14,6 +14,8 @@ export const DesktopBackendBootstrap = Schema.Struct({
   // Omit in WSL to use the Linux home instead of the mapped Windows directory.
   t3Home: Schema.optional(Schema.String),
   host: Schema.String,
+  // Windows addresses a WSL server should publish. Its own NIC is not reachable from other devices.
+  lanHosts: Schema.optionalKey(Schema.Array(Schema.String)),
   desktopBootstrapToken: Schema.String,
   // Derives rotating tokens instead of trusting desktopBootstrapToken indefinitely; see @t3tools/shared/desktopBootstrapToken.
   desktopBootstrapSecret: Schema.optionalKey(Schema.String),

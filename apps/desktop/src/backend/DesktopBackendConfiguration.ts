@@ -27,6 +27,7 @@ import * as DesktopServerExposure from "./DesktopServerExposure.ts";
 import * as DesktopShellEnvironment from "../shell/DesktopShellEnvironment.ts";
 import * as DesktopAppSettings from "../settings/DesktopAppSettings.ts";
 import * as DesktopWslEnvironment from "../wsl/DesktopWslEnvironment.ts";
+import { lanHostsFromExposure } from "../wsl/wslLanForward.ts";
 import * as DesktopWslServerTree from "../wsl/DesktopWslServerTree.ts";
 
 export class DesktopBackendObservabilitySettingsReadError extends Schema.TaggedError<DesktopBackendObservabilitySettingsReadError>()(
@@ -51,6 +52,7 @@ export class DesktopBackendConfiguration extends Context.Service<
     readonly resolveWsl: (input: {
       readonly port: number;
       readonly distro: string | null;
+      readonly lanHosts?: ReadonlyArray<string>;
     }) => Effect.Effect<
       DesktopBackendManager.DesktopBackendStartConfig,
       PlatformError.PlatformError
@@ -586,6 +588,7 @@ const resolveWslStartConfig = Effect.fn("desktop.backendConfiguration.resolveWsl
   input: SharedBootstrapInput & {
     readonly port: number;
     readonly distro: string | null;
+    readonly lanHosts?: ReadonlyArray<string>;
   },
 ): Effect.fn.Return<
   DesktopBackendManager.DesktopBackendStartConfig,
@@ -600,7 +603,7 @@ const resolveWslStartConfig = Effect.fn("desktop.backendConfiguration.resolveWsl
   const fileSystem = yield* FileSystem.FileSystem;
   const env = yield* HostProcess.Environment;
 
-  // wslhost loopback forwarding is unreliable on some Windows hosts; advertise the WSL IP instead.
+  // wslhost loopback forwarding is unreliable; the desktop uses the distro IP, and other devices use lanHosts.
   const wslBindHost = "0.0.0.0";
 
   const bootstrap = {
@@ -609,6 +612,7 @@ const resolveWslStartConfig = Effect.fn("desktop.backendConfiguration.resolveWsl
     port: input.port,
     // Omit t3Home to keep the Linux backend from sharing the primary's Windows SQLite file.
     host: wslBindHost,
+    ...(input.lanHosts === undefined ? {} : { lanHosts: input.lanHosts }),
     desktopBootstrapToken: input.bootstrapToken,
     desktopBootstrapSecret: input.bootstrapSecret,
     // PortSchema rejects 0 even when Tailscale Serve is disabled.
@@ -809,6 +813,7 @@ export const make = Effect.gen(function* () {
 
   const buildWslPrimaryConfig = Effect.gen(function* () {
     const backendExposure = yield* serverExposure.backendConfig;
+    const exposure = yield* serverExposure.getState;
     const persistedSettings = yield* settings.get;
     const shared = yield* sharedInputs;
     yield* wslEnvironment.preWarm(persistedSettings.wslDistro);
@@ -816,6 +821,7 @@ export const make = Effect.gen(function* () {
       ...shared,
       port: backendExposure.port,
       distro: persistedSettings.wslDistro,
+      lanHosts: lanHostsFromExposure(exposure),
     }).pipe(
       Effect.provideService(DesktopEnvironment.DesktopEnvironment, environment),
       Effect.provideService(DesktopWslEnvironment.DesktopWslEnvironment, wslEnvironment),

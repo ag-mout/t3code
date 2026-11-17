@@ -32,6 +32,7 @@ import * as DesktopTelemetryPublisher from "../telemetry/DesktopTelemetryPublish
 import * as DesktopBrowserHost from "../preview/DesktopBrowserHost.ts";
 import * as DesktopWindow from "../window/DesktopWindow.ts";
 import * as DesktopWslEnvironment from "../wsl/DesktopWslEnvironment.ts";
+import * as DesktopWslLanForward from "../wsl/DesktopWslLanForward.ts";
 import * as ElectronDialog from "../electron/ElectronDialog.ts";
 import * as ElectronApp from "../electron/ElectronApp.ts";
 
@@ -120,6 +121,7 @@ export const layer = Layer.effect(
     const environment = yield* DesktopEnvironment.DesktopEnvironment;
     const fileSystem = yield* FileSystem.FileSystem;
     const configuration = yield* DesktopBackendConfiguration.DesktopBackendConfiguration;
+    const lanForward = yield* DesktopWslLanForward.DesktopWslLanForward;
     const desktopWindow = yield* DesktopWindow.DesktopWindow;
     const electronDialog = yield* ElectronDialog.ElectronDialog;
     const electronApp = yield* ElectronApp.ElectronApp;
@@ -225,7 +227,7 @@ export const layer = Layer.effect(
       label: configuration.resolvePrimaryLabel,
       configResolve: configuration.resolvePrimary,
       // Absorb window errors so readiness can reset restartAttempt.
-      onReady: (httpBaseUrl, pid) =>
+      onReady: (httpBaseUrl, pid, config) =>
         FiberHandle.run(updateMarkerWait, releaseUpdateMarker(httpBaseUrl, pid)).pipe(
           Effect.andThen(reloadStaleMain),
           Effect.andThen(desktopWindow.handleBackendReady(httpBaseUrl)),
@@ -236,13 +238,20 @@ export const layer = Layer.effect(
               error: error.message,
             }),
           ),
+          Effect.andThen(lanForward.primaryReady(config)),
         ),
       onStartupFailure: (failure) =>
         SubscriptionRef.set(primaryBackendStartup, { _tag: "Failing", ...failure }),
-      onShutdown: () =>
-        FiberHandle.clear(updateMarkerWait).pipe(
-          Effect.andThen(desktopWindow.handleBackendNotReady),
-        ),
+      onShutdown: Effect.fn("desktop.backendPool.primaryShutdown")(function* () {
+        const windowExit = yield* Effect.exit(
+          FiberHandle.clear(updateMarkerWait).pipe(
+            Effect.andThen(desktopWindow.handleBackendNotReady),
+          ),
+        );
+        // Release the Windows listener before a fallback backend tries to bind the same port.
+        yield* lanForward.primaryStopped;
+        return yield* windowExit;
+      }),
       onPreflightFailed: handlePrimaryPreflightFailure,
       onStateDirOwned: () =>
         DesktopHomeOwner.readLiveHomeOwner().pipe(

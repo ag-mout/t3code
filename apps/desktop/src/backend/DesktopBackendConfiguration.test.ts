@@ -40,7 +40,13 @@ const layerBackendConfiguration = (prepared = true) =>
   );
 
 const layerServerExposure = Layer.succeed(DesktopServerExposure.DesktopServerExposure, {
-  getState: Effect.die("unexpected getState"),
+  getState: Effect.succeed({
+    mode: "network-accessible",
+    endpointUrl: "http://192.168.1.50:4888",
+    advertisedHost: "192.168.1.50",
+    tailscaleServeEnabled: true,
+    tailscaleServePort: 8443,
+  }),
   backendConfig: Effect.succeed({
     port: 4888,
     bindHost: "0.0.0.0",
@@ -781,6 +787,7 @@ describe("DesktopBackendConfiguration", () => {
         assert.equal(config.executablePath, "wsl.exe");
         assert.equal(config.bootstrap.port, 5050);
         assert.equal(config.bootstrap.host, "0.0.0.0");
+        assert.equal(config.bootstrap.lanHosts, undefined);
         assert.equal(config.bootstrap.tailscaleServeEnabled, false);
         assert.notProperty(config.bootstrap, "desktopTelemetryFd");
         assert.notProperty(config.bootstrap, "resourceMonitorPath");
@@ -871,6 +878,9 @@ describe("DesktopBackendConfiguration", () => {
           const failure = Option.getOrThrow(config.preflightFailure);
 
           assert.equal(config.executablePath, "wsl.exe");
+          assert.deepEqual(config.bootstrap.lanHosts, ["192.168.1.50"]);
+          assert.equal(config.bootstrap.host, "0.0.0.0");
+          assert.equal(config.bootstrap.tailscaleServeEnabled, false);
           assert.isTrue(failure.fatal);
           assert.include(failure.reason, "Removed-Distro");
         }).pipe(
@@ -910,9 +920,16 @@ describe("DesktopBackendConfiguration", () => {
         const configuration = yield* DesktopBackendConfiguration.DesktopBackendConfiguration;
         const config = yield* configuration.resolveWsl({ port: 5050, distro: "Ubuntu" });
         const failure = Option.getOrThrow(config.preflightFailure);
+        const published = yield* configuration.resolveWsl({
+          port: 5050,
+          distro: "Ubuntu",
+          lanHosts: ["10.0.0.8"],
+        });
 
         assert.isTrue(failure.fatal);
         assert.include(failure.reason, "missing server entry");
+        assert.equal(config.bootstrap.lanHosts, undefined);
+        assert.deepEqual(published.bootstrap.lanHosts, ["10.0.0.8"]);
       }).pipe(
         Effect.provide(
           layerBackendConfiguration().pipe(

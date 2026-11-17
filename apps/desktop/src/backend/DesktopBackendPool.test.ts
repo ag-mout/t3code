@@ -27,6 +27,7 @@ import * as ElectronDialog from "../electron/ElectronDialog.ts";
 import * as ElectronApp from "../electron/ElectronApp.ts";
 import * as DesktopWindow from "../window/DesktopWindow.ts";
 import * as DesktopWslEnvironment from "../wsl/DesktopWslEnvironment.ts";
+import * as DesktopWslLanForward from "../wsl/DesktopWslLanForward.ts";
 import * as DesktopBackendConfiguration from "./DesktopBackendConfiguration.ts";
 import * as DesktopBackendPool from "./DesktopBackendPool.ts";
 import type { DesktopBackendStartConfig } from "./DesktopBackendManager.ts";
@@ -196,6 +197,10 @@ function layerPool(
         DesktopAppSettings.layerTest(),
         DesktopState.layer,
         DesktopWslEnvironment.layerTest(),
+        Layer.succeed(DesktopWslLanForward.DesktopWslLanForward, {
+          primaryReady: () => Effect.void,
+          primaryStopped: Effect.void,
+        }),
         Layer.succeed(ElectronDialog.ElectronDialog, {
           pickFolder: () => Effect.die("unexpected folder picker"),
           pickFiles: () => Effect.die("unexpected file picker"),

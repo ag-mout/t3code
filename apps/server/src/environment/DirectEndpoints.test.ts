@@ -104,6 +104,27 @@ const virtualInterface = (address: string, mac = "02:42:ac:11:00:01") => [
 ];
 
 describe("resolveBoundEndpoints", () => {
+  it("publishes the desktop LAN address instead of the distro interfaces", () => {
+    expect(
+      resolveBoundEndpoints({
+        platform: "linux",
+        host: "0.0.0.0",
+        port: 3773,
+        interfaces: INTERFACES,
+        advertisedHosts: ["10.1.2.3", "203.0.113.20", "10.1.2.3", "127.0.0.1"],
+      }),
+    ).toEqual([{ kind: "lan", httpBaseUrl: "http://10.1.2.3:3773/" }]);
+    expect(
+      resolveBoundEndpoints({
+        platform: "linux",
+        host: "0.0.0.0",
+        port: 3773,
+        interfaces: INTERFACES,
+        advertisedHosts: [],
+      }),
+    ).toEqual([]);
+  });
+
   it("lists every external IPv4 address for a wildcard bind, tagging the tailnet one", () => {
     expect(
       resolveBoundEndpoints({

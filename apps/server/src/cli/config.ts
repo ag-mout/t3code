@@ -511,6 +511,7 @@ export const resolveServerConfig = Effect.fn("config.resolveServerConfig")(funct
     ...derivedPaths,
     serverTracePath,
     host,
+    ...(bootstrap?.lanHosts === undefined ? {} : { lanHosts: bootstrap.lanHosts }),
     ...(privateNetworkOnly ? { privateNetworkOnly } : {}),
     staticDir,
     devUrl,

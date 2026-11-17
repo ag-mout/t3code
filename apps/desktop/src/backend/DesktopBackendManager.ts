@@ -253,8 +253,12 @@ export interface BackendInstanceSpec {
   readonly id: BackendInstanceId;
   readonly label: Effect.Effect<string>;
   readonly configResolve: Effect.Effect<DesktopBackendStartConfig, PlatformError.PlatformError>;
-  /** Receives the ready run's URL and pid; reading current config could race a subsequent restart. */
-  readonly onReady?: (httpBaseUrl: URL, pid: number) => Effect.Effect<void>;
+  /** Receives the ready run's URL, pid, and config; reading current config could race a subsequent restart. */
+  readonly onReady?: (
+    httpBaseUrl: URL,
+    pid: number,
+    config: DesktopBackendStartConfig,
+  ) => Effect.Effect<void>;
   readonly onShutdown?: () => Effect.Effect<void>;
   readonly onPreflightFailed?: (failure: PreflightFailure) => Effect.Effect<boolean>;
   readonly onStateDirOwned?: () => Effect.Effect<void>;
@@ -984,7 +988,7 @@ export const makeBackendInstance = Effect.fn("makeBackendInstance")(function* (
               return;
             }
 
-            yield* spec.onReady?.(config.value.httpBaseUrl, pid) ?? Effect.void;
+            yield* spec.onReady?.(config.value.httpBaseUrl, pid, config.value) ?? Effect.void;
             if (
               config.value.runningDistro !== undefined &&
               config.value.wslRuntimeId !== undefined

@@ -62,7 +62,15 @@ export function resolveBoundEndpoints(input: {
   readonly interfaces: NetworkInterfacesMap;
   /** A cloud VM's private network is its provider's, which no client shares. */
   readonly onCloudVm?: boolean;
+  /** Replaces interface discovery. A WSL server's own address is unreachable from a phone. */
+  readonly advertisedHosts?: ReadonlyArray<string>;
 }): ReadonlyArray<ServerDirectEndpoint> {
+  if (input.advertisedHosts !== undefined) {
+    return [...new Set(input.advertisedHosts.filter(isAdvertisableAddress))].map((address) => ({
+      kind: "lan" as const,
+      httpBaseUrl: `http://${formatHostForUrl(address)}:${input.port}/`,
+    }));
+  }
   if (isLoopbackHost(input.host)) return [];
   const tailscaleAddresses = new Set(
     Object.entries(input.interfaces).flatMap(([name, entries = []]) =>
@@ -145,6 +153,7 @@ export const make = Effect.gen(function* () {
         port: config.port,
         interfaces: NodeOS.networkInterfaces(),
         onCloudVm: yield* onCloudVm,
+        ...(config.lanHosts === undefined ? {} : { advertisedHosts: config.lanHosts }),
       }),
     ];
     const servedUrl = yield* Ref.get(servedEndpoint);

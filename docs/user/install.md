@@ -147,6 +147,11 @@ there. Install the provider CLIs inside that distro. T3 Code installs its own
 server runtime there automatically; the first launch after an app update can
 take longer.
 
+A phone reaches those projects when WSL is the only backend and **Network access**
+is on. The pairing link uses this computer's network address, and the desktop app
+forwards it into the distro. Running Windows and WSL at the same time keeps the
+WSL projects in the desktop app.
+
 ### Open a project from a terminal
 
 With the desktop app already running on the same machine:
